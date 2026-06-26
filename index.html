@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>National Enrollment Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<style>
+:root{
+  --ink:#0F2540;
+  --ink-soft:#1F3A5F;
+  --muted:#5B6B7D;
+  --faint:#8C99A6;
+  --paper:#F5F7F9;
+  --card:#FFFFFF;
+  --line:#DCE2E8;
+  --line-strong:#C2CBD4;
+
+  --navy-deep:#0B2A4D;
+  --navy-mid:#2D5680;
+  --slate-light:#9FB6CD;
+  --neutral:#ECEBE4;
+  --gold-light:#E7C375;
+  --amber:#D79A34;
+  --amber-deep:#A85A12;
+  --new-color:#3E8E7E;
+  --closed-color:#8E96A1;
+
+  --radius:10px;
+  --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:var(--sans);
+  color:var(--ink);
+  background:var(--paper);
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  overflow:hidden;
+  font-size:14px;
+}
+button{font-family:var(--sans);cursor:pointer;}
+a{color:inherit;}
+
+/* ===== Header / Atlas plate strip ===== */
+.topbar{
+  border-bottom:1px solid var(--line);
+  background:var(--card);
+  padding:10px 18px 0 18px;
+  flex-shrink:0;
+}
+.topbar-row1{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:16px;
+  padding-bottom:8px;
+}
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+}
+.brand-mark{
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:0.12em;
+  color:var(--amber-deep);
+  border:1px solid var(--amber-deep);
+  border-radius:3px;
+  padding:1px 6px;
+}
+.brand-title{
+  font-size:18px;
+  font-weight:800;
+  letter-spacing:-0.01em;
+}
+.plate-line{
+  font-family:var(--mono);
+  font-size:11.5px;
+  color:var(--muted);
+  letter-spacing:0.03em;
+}
+.plate-line b{color:var(--ink-soft);font-weight:600;}
+.crumbs{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:13px;
+}
+.crumb{
+  color:var(--muted);
+  background:none;
+  border:none;
+  padding:2px 4px;
+  border-radius:5px;
+  font-weight:500;
+}
+.crumb.active{color:var(--ink);font-weight:700;}
+.crumb:not(.active):hover{background:var(--paper);color:var(--ink-soft);text-decoration:underline;}
+.crumb-sep{color:var(--faint);}
+.reset-btn{
+  border:1px solid var(--line-strong);
+  background:var(--card);
+  color:var(--muted);
+  font-size:12px;
+  font-weight:600;
+  padding:5px 10px;
+  border-radius:7px;
+}
+.reset-btn:hover{border-color:var(--navy-mid);color:var(--navy-mid);}
+
+.topbar-row2{
+  display:flex;
+  align-items:flex-end;
+  gap:22px;
+  padding:6px 0 10px 0;
+  flex-wrap:wrap;
+}
+.control-group{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.control-label{
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:0.08em;
+  color:var(--faint);
+  text-transform:uppercase;
+}
+.year-controls{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+select{
+  font-family:var(--mono);
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  border:1px solid var(--line-strong);
+  background:var(--card);
+  border-radius:6px;
+  padding:4px 6px;
+}
+.year-arrow{color:var(--faint);font-size:13px;}
+
+.legend-wrap{flex:1;min-width:260px;max-width:460px;}
+.legend-ribbon{
+  display:flex;
+  height:14px;
+  border-radius:4px;
+  overflow:hidden;
+  border:1px solid var(--line-strong);
+}
+.legend-ribbon span{flex:1;}
+.legend-ticks{
+  display:flex;
+  justify-content:space-between;
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--faint);
+  margin-top:2px;
+}
+.legend-extra{
+  display:flex;
+  gap:12px;
+  margin-top:4px;
+  font-size:10.5px;
+  color:var(--muted);
+}
+.legend-extra span{display:flex;align-items:center;gap:4px;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+.search-wrap{position:relative;width:260px;}
+.search-input{
+  width:100%;
+  font-family:var(--sans);
+  font-size:13px;
+  border:1px solid var(--line-strong);
+  border-radius:7px;
+  padding:6px 10px;
+  background:var(--card);
+}
+.search-input:focus{outline:2px solid var(--navy-mid);outline-offset:-1px;}
+.search-results{
+  position:absolute;
+  top:calc(100% + 4px);
+  left:0;right:0;
+  background:var(--card);
+  border:1px solid var(--line-strong);
+  border-radius:8px;
+  max-height:260px;
+  overflow-y:auto;
+  box-shadow:0 6px 18px rgba(15,37,64,0.12);
+  z-index:1200;
+  display:none;
+}
+.search-results.open{display:block;}
+.search-item{
+  padding:7px 10px;
+  font-size:12.5px;
+  border-bottom:1px solid var(--paper);
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+}
+.search-item:hover, .search-item.hl{background:var(--paper);cursor:pointer;}
+.search-item small{color:var(--faint);font-family:var(--mono);}
+
+/* ===== Body layout ===== */
+.body-row{
+  flex:1;
+  display:flex;
+  min-height:0;
+}
+#map{
+  flex:1;
+  background:#EEF1F5;
+}
+.leaflet-container{background:#EEF1F5;font-family:var(--sans);}
+
+.sidebar{
+  width:340px;
+  flex-shrink:0;
+  border-left:1px solid var(--line);
+  background:var(--card);
+  overflow-y:auto;
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.card{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:12px 13px;
+  background:var(--card);
+}
+.card-title{
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.07em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 8px 0;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.stat-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.stat{
+  display:flex;
+  flex-direction:column;
+}
+.stat-num{
+  font-family:var(--mono);
+  font-size:18px;
+  font-weight:700;
+  color:var(--ink);
+}
+.stat-num.pos{color:var(--amber-deep);}
+.stat-num.neg{color:var(--navy-deep);}
+.stat-lbl{font-size:10.5px;color:var(--faint);margin-top:1px;}
+
+.tab-row{display:flex;gap:4px;margin-bottom:6px;}
+.tab-btn{
+  border:1px solid var(--line);
+  background:var(--paper);
+  border-radius:6px;
+  font-size:11px;
+  font-weight:600;
+  padding:4px 9px;
+  color:var(--muted);
+}
+.tab-btn.active{background:var(--navy-deep);color:#fff;border-color:var(--navy-deep);}
+.mover-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;}
+.mover-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  padding:5px 7px;
+  border-radius:6px;
+  font-size:12px;
+}
+.mover-item:hover{background:var(--paper);cursor:pointer;}
+.mover-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.mover-pct{font-family:var(--mono);font-weight:700;font-size:12px;flex-shrink:0;}
+
+.empty-note{color:var(--faint);font-size:12px;font-style:italic;}
+
+.detail-name{font-size:14.5px;font-weight:700;margin:0 0 2px 0;}
+.detail-code{font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:8px;}
+.detail-row{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--paper);}
+.detail-row b{font-family:var(--mono);}
+.btn{
+  width:100%;
+  border:1px solid var(--navy-mid);
+  background:var(--navy-deep);
+  color:#fff;
+  font-weight:600;
+  font-size:12.5px;
+  padding:7px 10px;
+  border-radius:7px;
+  margin-top:8px;
+}
+.btn:hover{background:var(--ink-soft);}
+.btn.secondary{
+  background:var(--card);
+  color:var(--navy-deep);
+  border:1px solid var(--line-strong);
+}
+.btn.secondary:hover{border-color:var(--navy-mid);}
+.trend-box{margin-top:8px;}
+.trend-svg{width:100%;height:110px;}
+.trend-path{stroke:var(--amber-deep);stroke-width:2;}
+.axis-line{stroke:var(--line-strong);stroke-width:1;}
+.axis-text{font-family:var(--mono);font-size:8.5px;fill:var(--faint);}
+
+details.methodology{font-size:12px;color:var(--muted);}
+details.methodology summary{
+  cursor:pointer;
+  font-weight:700;
+  font-size:11px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+details.methodology p{margin:8px 0;line-height:1.5;}
+details.methodology code{font-family:var(--mono);font-size:11px;background:var(--paper);padding:1px 4px;border-radius:3px;}
+
+.export-row{display:flex;gap:8px;}
+.export-row .btn{margin-top:0;}
+
+.loading-overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(245,247,249,0.88);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  z-index:900;
+}
+.loading-overlay.hidden{display:none;}
+.spinner{
+  width:26px;height:26px;
+  border:3px solid var(--line-strong);
+  border-top-color:var(--navy-deep);
+  border-radius:50%;
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.loading-sub{font-family:var(--mono);font-size:10.5px;color:var(--faint);}
+
+.map-wrap{position:relative;flex:1;min-width:0;}
+
+.leaflet-tooltip.atlas-tip{
+  font-family:var(--sans);
+  font-size:12px;
+  border:1px solid var(--line-strong);
+  box-shadow:0 4px 12px rgba(15,37,64,0.15);
+}
+.leaflet-tooltip.atlas-tip b{font-family:var(--mono);}
+
+.orphan-flag{
+  font-size:9.5px;
+  color:var(--faint);
+  font-style:italic;
+}
+
+footer.credit{
+  font-size:10.5px;
+  color:var(--faint);
+  text-align:center;
+  padding:5px 0;
+  border-top:1px solid var(--line);
+  background:var(--card);
+  flex-shrink:0;
+}
+
+@media (max-width:880px){
+  .body-row{flex-direction:column;}
+  .sidebar{width:100%;border-left:none;border-top:1px solid var(--line);max-height:42vh;}
+  .map-wrap{min-height:40vh;}
+  .topbar-row2{gap:12px;}
+  .search-wrap{width:100%;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row1">
+    <div class="brand">
+      <span class="brand-mark">NCES&middot;CCD</span>
+      <span class="brand-title">National Enrollment Atlas</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="crumbs" id="crumbs"></div>
+      <button class="reset-btn" id="resetBtn">Reset</button>
+    </div>
+  </div>
+  <div class="plate-line" id="plateLine">PLATE I &middot; NATIONAL VIEW</div>
+  <div class="topbar-row2">
+    <div class="control-group">
+      <span class="control-label">School years compared</span>
+      <div class="year-controls">
+        <select id="yearFrom"></select>
+        <span class="year-arrow">&rarr;</span>
+        <select id="yearTo"></select>
+      </div>
+    </div>
+    <div class="control-group legend-wrap">
+      <span class="control-label" id="legendLabel">% change in enrollment</span>
+      <div class="legend-ribbon" id="legendRibbon"></div>
+      <div class="legend-ticks" id="legendTicks"></div>
+      <div class="legend-extra">
+        <span><span class="dot" style="background:var(--new-color)"></span>new</span>
+        <span><span class="dot" style="background:var(--closed-color)"></span>closed / merged</span>
+      </div>
+    </div>
+    <div class="control-group">
+      <span class="control-label" id="searchLabel">Search states</span>
+      <div class="search-wrap">
+        <input type="text" class="search-input" id="searchInput" placeholder="Type a name&hellip;" autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="body-row">
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">Loading&hellip;</div>
+      <div class="loading-sub" id="loadingSub"></div>
+    </div>
+  </div>
+  <div class="sidebar">
+    <div class="card" id="summaryCard">
+      <div class="card-title">Summary</div>
+      <div class="stat-grid" id="summaryStats"></div>
+    </div>
+
+    <div class="card" id="moversCard">
+      <div class="card-title">Movers</div>
+      <div class="tab-row">
+        <button class="tab-btn active" data-tab="gain" id="tabGain">Top gainers</button>
+        <button class="tab-btn" data-tab="loss" id="tabLoss">Top decliners</button>
+      </div>
+      <ul class="mover-list" id="moverList"></ul>
+    </div>
+
+    <div class="card" id="detailCard" style="display:none;">
+      <div class="card-title">Selected <span id="detailClose" style="cursor:pointer;font-weight:400;">&times; close</span></div>
+      <div class="detail-name" id="detailName">&mdash;</div>
+      <div class="detail-code" id="detailCode"></div>
+      <div id="detailRows"></div>
+      <button class="btn secondary" id="detailDrillBtn" style="display:none;">Drill in &rarr;</button>
+      <button class="btn" id="detailTrendBtn">View 9-year trend</button>
+      <div class="trend-box" id="trendBox" style="display:none;"></div>
+    </div>
+
+    <div class="card" id="exportCard">
+      <div class="card-title">Export</div>
+      <div class="export-row">
+        <button class="btn secondary" id="exportBtn">Download CSV (current view)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <details class="methodology">
+        <summary>Methodology &amp; data notes</summary>
+        <p><b>Sources:</b> NCES Common Core of Data (CCD) school directory and membership files, 2016&ndash;17 through 2024&ndash;25, and NCES EDGE-derived school district and school point boundary files (2024&ndash;25 geography applied across all years).</p>
+        <p><b>Scope:</b> 50 states + DC. American Samoa, Guam, the Northern Mariana Islands, the U.S. Virgin Islands, the Bureau of Indian Education, and DoDEA domestic schools are present in the source data but not yet mapped here.</p>
+        <p><b>Join keys:</b> <code>LEAID</code>/<code>NCESSCH</code> in the directory and membership files are zero-padded to 7 and 12 digits respectively to match the <code>GEOID</code> fields used in the boundary files.</p>
+        <p><b>No boundary on file:</b> many charter and other non-geographic LEAs (their own LEAID, no district catchment) have no EDGE boundary polygon. These are plotted as a small marker at the average location of their schools and flagged in lists rather than silently dropped.</p>
+        <p><b>Color domain:</b> wider at finer grain since smaller bases swing further &mdash; national &plusmn;12%, within-state districts &plusmn;25%, within-district schools &plusmn;40%. An entity open only in the later year is flagged <i>new</i>; one open only in the earlier year is flagged <i>closed/merged</i>, rather than assigned a misleading rate.</p>
+        <p><b>Geography:</b> state outlines come from the public <code>us-atlas</code> TopoJSON CDN. District and school boundaries/points come from the local EDGE-derived files in this repository.</p>
+        <p>No enrollment data leaves the browser &mdash; all files are fetched directly from this repository.</p>
+      </details>
+    </div>
+  </div>
+</div>
+<footer class="credit">Built from local NCES CCD directory/membership files and NCES EDGE-derived boundary files &middot; State outlines via us-atlas/TopoJSON</footer>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   CONFIG
+   ════════════════════════════════════════════════════════════════════ */
+const YEARS = [2016,2017,2018,2019,2020,2021,2022,2023,2024];
+const LATEST_YEAR = Math.max(...YEARS);
+const EARLIEST_YEAR = Math.min(...YEARS);
+
+const DIR_BASE='json/directory', DIR_PREFIX='ccd_sch_directory';
+const MEM_BASE='json/membership', MEM_PREFIX='ccd_sch_membership';
+const DISTRICT_GEO_BASE='json/geo/districts', DISTRICT_GEO_PREFIX='districts_2425';
+const SCHOOL_GEO_BASE='json/geo/schools', SCHOOL_GEO_PREFIX='schools_2425';
+
+const DOMAIN_BY_LEVEL = {national:0.12, state:0.25, district:0.40};
+const FETCH_CONCURRENCY = 8;
+
+const US_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
+
+const STATE_FIPS = [
+  ['01','AL','Alabama'],['02','AK','Alaska'],['04','AZ','Arizona'],['05','AR','Arkansas'],['06','CA','California'],
+  ['08','CO','Colorado'],['09','CT','Connecticut'],['10','DE','Delaware'],['11','DC','District of Columbia'],
+  ['12','FL','Florida'],['13','GA','Georgia'],['15','HI','Hawaii'],['16','ID','Idaho'],['17','IL','Illinois'],
+  ['18','IN','Indiana'],['19','IA','Iowa'],['20','KS','Kansas'],['21','KY','Kentucky'],['22','LA','Louisiana'],
+  ['23','ME','Maine'],['24','MD','Maryland'],['25','MA','Massachusetts'],['26','MI','Michigan'],['27','MN','Minnesota'],
+  ['28','MS','Mississippi'],['29','MO','Missouri'],['30','MT','Montana'],['31','NE','Nebraska'],['32','NV','Nevada'],
+  ['33','NH','New Hampshire'],['34','NJ','New Jersey'],['35','NM','New Mexico'],['36','NY','New York'],
+  ['37','NC','North Carolina'],['38','ND','North Dakota'],['39','OH','Ohio'],['40','OK','Oklahoma'],
+  ['41','OR','Oregon'],['42','PA','Pennsylvania'],['44','RI','Rhode Island'],['45','SC','South Carolina'],
+  ['46','SD','South Dakota'],['47','TN','Tennessee'],['48','TX','Texas'],['49','UT','Utah'],['50','VT','Vermont'],
+  ['51','VA','Virginia'],['53','WA','Washington'],['54','WV','West Virginia'],['55','WI','Wisconsin'],['56','WY','Wyoming']
+];
+const FIPS_TO_ABBR = new Map(STATE_FIPS.map(([fips,abbr])=>[fips,abbr]));
+const ABBR_TO_FIPS = new Map(STATE_FIPS.map(([fips,abbr])=>[abbr,fips]));
+const ABBR_TO_NAME = new Map(STATE_FIPS.map(([,abbr,name])=>[abbr,name]));
+const ABBR_LIST = STATE_FIPS.map(([,abbr])=>abbr);
+const NAME_SORTED_STATES = [...STATE_FIPS].sort((a,b)=>a[2].localeCompare(b[2]));
+
+/* ════════════════════════════════════════════════════════════════════
+   HELPERS
+   ════════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const yc = y => `${String(y).slice(2)}${String(y+1).slice(2)}`;
+const yLabel = y => `${y}\u2013${String(y+1).slice(2)}`;
+const padLeaid = v => String(v).padStart(7,'0');
+const padNcessch = v => String(v).padStart(12,'0');
+const fmtNum = n => Number.isFinite(n) ? Math.round(n).toLocaleString() : '\u2014';
+const fmtPct = p => Number.isFinite(p) ? `${p>0?'+':''}${p.toFixed(1)}%` : '\u2014';
+const romanLevel = {national:'I', state:'II', district:'III'};
+
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+const _escDiv = document.createElement('div');
+function escapeHtml(s){ _escDiv.textContent = s==null ? '' : String(s); return _escDiv.innerHTML; }
+
+function membershipUrl(year, abbr){ return `${MEM_BASE}/${MEM_PREFIX}_${yc(year)}_${abbr}.json`; }
+function directoryUrl(year, abbr){ return `${DIR_BASE}/${DIR_PREFIX}_${yc(year)}_${abbr}.json`; }
+function districtGeoUrl(abbr){ return `${DISTRICT_GEO_BASE}/${DISTRICT_GEO_PREFIX}_${abbr}.geojson`; }
+function schoolGeoUrl(abbr){ return `${SCHOOL_GEO_BASE}/${SCHOOL_GEO_PREFIX}_${abbr}.geojson`; }
+
+/* ════════════════════════════════════════════════════════════════════
+   FETCH LAYER (cached, concurrency-limited)
+   ════════════════════════════════════════════════════════════════════ */
+const _cache = new Map();
+function fetchCached(url){
+  if(_cache.has(url)) return _cache.get(url);
+  const p = fetch(url).then(r=>{
+    if(!r.ok) throw new Error(`${url} \u2192 ${r.status}`);
+    return r.json();
+  }).catch(e=>{ _cache.delete(url); throw e; });
+  _cache.set(url, p);
+  return p;
+}
+function getMembership(year, abbr){ return fetchCached(membershipUrl(year, abbr)); }
+function getDirectory(year, abbr){ return fetchCached(directoryUrl(year, abbr)); }
+function getDistrictGeo(abbr){ return fetchCached(districtGeoUrl(abbr)); }
+function getSchoolGeo(abbr){ return fetchCached(schoolGeoUrl(abbr)); }
+
+async function runPool(items, worker, concurrency, onProgress){
+  let i=0, active=0, done=0;
+  return new Promise(resolve=>{
+    function next(){
+      if(i>=items.length && active===0){ resolve(); return; }
+      while(active<concurrency && i<items.length){
+        const item=items[i++]; active++;
+        worker(item).catch(e=>console.warn('fetch failed', e)).finally(()=>{
+          active--; done++;
+          if(onProgress) onProgress(done, items.length);
+          next();
+        });
+      }
+    }
+    next();
+  });
+}
+
+/* Loads membership for every state in ABBR_LIST for a given year, returns flat array (skips failures). */
+async function loadNationalMembership(year, onProgress){
+  const out=[];
+  await runPool(ABBR_LIST, async abbr=>{
+    const rows = await getMembership(year, abbr);
+    out.push(...rows);
+  }, FETCH_CONCURRENCY, onProgress);
+  return out;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   AGGREGATION
+   ════════════════════════════════════════════════════════════════════ */
+function sumBy(rows, keyFn, padFn){
+  const m = new Map();
+  for(const r of rows){
+    const raw = keyFn(r);
+    if(raw==null) continue;
+    const k = padFn ? padFn(raw) : raw;
+    m.set(k, (m.get(k)||0) + (Number(r.student_count)||0));
+  }
+  return m;
+}
+function pctChangeInfo(a, b){
+  const hasA = a!=null, hasB = b!=null;
+  if(hasA && !hasB) return {status:'closed', pct:null};
+  if(!hasA && hasB) return {status:'new', pct:null};
+  if(!hasA && !hasB) return {status:'absent', pct:null};
+  if(a===0) return {status: b===0?'flat':'new-from-zero', pct: b===0?0:null};
+  return {status:'ok', pct: (b-a)/a*100};
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   COLOR SCALE
+   ════════════════════════════════════════════════════════════════════ */
+function bucketColor(pct, domain){
+  if(pct==null) return '#C9D0D8';
+  const half = domain/2, tiny = domain*0.04;
+  if(pct <= -domain) return 'var(--navy-deep)';
+  if(pct <= -half) return 'var(--navy-mid)';
+  if(pct <= -tiny) return 'var(--slate-light)';
+  if(pct < tiny) return 'var(--neutral)';
+  if(pct < half) return 'var(--gold-light)';
+  if(pct < domain) return 'var(--amber)';
+  return 'var(--amber-deep)';
+}
+function statusColor(status, pct, domain){
+  if(status==='new' || status==='new-from-zero') return 'var(--new-color)';
+  if(status==='closed') return 'var(--closed-color)';
+  return bucketColor(pct, domain);
+}
+const _varCache = new Map();
+function resolveCssVar(v){
+  if(!v.startsWith('var(')) return v;
+  if(_varCache.has(v)) return _varCache.get(v);
+  const name = v.slice(4,-1);
+  const resolved = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  _varCache.set(v, resolved);
+  return resolved;
+}
+function renderLegend(domain){
+  const stops = ['var(--navy-deep)','var(--navy-mid)','var(--slate-light)','var(--neutral)','var(--gold-light)','var(--amber)','var(--amber-deep)'];
+  $('legendRibbon').innerHTML = stops.map(c=>`<span style="background:${resolveCssVar(c)}"></span>`).join('');
+  const half=(domain/2*100).toFixed(0), full=(domain*100).toFixed(0);
+  $('legendTicks').innerHTML = `<span>\u2212${full}%</span><span>\u2212${half}%</span><span>0</span><span>+${half}%</span><span>+${full}%</span>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   APP STATE
+   ════════════════════════════════════════════════════════════════════ */
+const App = {
+  level:'national',           // national | state | district
+  stateAbbr:null,
+  districtLeaid:null,
+  districtName:null,
+  yearFrom: LATEST_YEAR-1,
+  yearTo: LATEST_YEAR,
+  selectedEntity:null,        // {type,key,name,a,b,status,pct}
+  currentRows:[],             // rendered table rows for export & movers, at current level
+  moverTab:'gain',
+  stateCache:new Map(),       // abbr -> {memA, memB, dir, distGeo, schGeo}
+};
+
+let map, geoLayer = null, markerLayer = null, usAtlasGeo = null;
+
+/* ════════════════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════════════════ */
+function initYearSelects(){
+  const fromSel=$('yearFrom'), toSel=$('yearTo');
+  fromSel.innerHTML = YEARS.map(y=>`<option value="${y}">${yLabel(y)}</option>`).join('');
+  toSel.innerHTML = YEARS.map(y=>`<option value="${y}">${yLabel(y)}</option>`).join('');
+  fromSel.value = App.yearFrom; toSel.value = App.yearTo;
+  fromSel.addEventListener('change', onYearChange);
+  toSel.addEventListener('change', onYearChange);
+}
+function onYearChange(){
+  let from = Number($('yearFrom').value), to = Number($('yearTo').value);
+  if(to <= from){ to = Math.min(LATEST_YEAR, from+1); $('yearTo').value = to; }
+  App.yearFrom = from; App.yearTo = to;
+  rerenderCurrentLevel();
+}
+
+function initMap(){
+  map = L.map('map', {zoomControl:true, attributionControl:false, minZoom:2, maxZoom:15})
+    .setView([39.5,-98.35], 4);
+}
+
+async function loadUsAtlas(){
+  const topo = await fetch(US_ATLAS_URL).then(r=>r.json());
+  const fc = topojson.feature(topo, topo.objects.states);
+  fc.features.forEach(f=>{ f.properties._fips = String(f.id).padStart(2,'0'); });
+  usAtlasGeo = fc;
+}
+
+function setLoading(on, text, sub){
+  $('loadingOverlay').classList.toggle('hidden', !on);
+  if(text) $('loadingText').textContent = text;
+  $('loadingSub').textContent = sub || '';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   BREADCRUMB / PLATE
+   ════════════════════════════════════════════════════════════════════ */
+function updateChrome(){
+  const c = $('crumbs');
+  let html = `<button class="crumb ${App.level==='national'?'active':''}" id="crumbNational">National</button>`;
+  if(App.stateAbbr){
+    html += `<span class="crumb-sep">/</span><button class="crumb ${App.level==='state'?'active':''}" id="crumbState">${escapeHtml(ABBR_TO_NAME.get(App.stateAbbr))}</button>`;
+  }
+  if(App.districtLeaid){
+    html += `<span class="crumb-sep">/</span><button class="crumb active">${escapeHtml(App.districtName||App.districtLeaid)}</button>`;
+  }
+  c.innerHTML = html;
+  $('crumbNational').onclick = ()=>goToNational();
+  if($('crumbState')) $('crumbState').onclick = ()=>goToState(App.stateAbbr);
+
+  let plate;
+  if(App.level==='national') plate = `PLATE ${romanLevel.national} \u00b7 NATIONAL VIEW`;
+  else if(App.level==='state') plate = `PLATE ${romanLevel.state} \u00b7 STATE: ${ABBR_TO_NAME.get(App.stateAbbr).toUpperCase()}`;
+  else plate = `PLATE ${romanLevel.district} \u00b7 DISTRICT: ${(App.districtName||'').toUpperCase()}`;
+  $('plateLine').textContent = `${plate}  \u00b7  SY ${yLabel(App.yearFrom)}\u2013${yLabel(App.yearTo).split('\u2013')[1]}`;
+
+  $('searchLabel').textContent = App.level==='national' ? 'Search states'
+    : App.level==='state' ? `Search districts & schools in ${App.stateAbbr}`
+    : `Search schools in this district`;
+
+  renderLegend(DOMAIN_BY_LEVEL[App.level]);
+  $('legendLabel').textContent = `% change in enrollment \u00b7 ${App.level} view`;
+}
+
+function goToNational(){
+  App.level='national'; App.stateAbbr=null; App.districtLeaid=null; App.districtName=null;
+  clearDetail();
+  updateChrome();
+  renderNational();
+}
+function goToState(abbr){
+  App.level='state'; App.stateAbbr=abbr; App.districtLeaid=null; App.districtName=null;
+  clearDetail();
+  updateChrome();
+  renderState(abbr);
+}
+function goToDistrict(abbr, leaid, name){
+  App.level='district'; App.stateAbbr=abbr; App.districtLeaid=leaid; App.districtName=name;
+  clearDetail();
+  updateChrome();
+  renderDistrict(abbr, leaid, name);
+}
+
+function rerenderCurrentLevel(){
+  if(App.level==='national') renderNational();
+  else if(App.level==='state') renderState(App.stateAbbr);
+  else renderDistrict(App.stateAbbr, App.districtLeaid, App.districtName);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   NATIONAL LEVEL
+   ════════════════════════════════════════════════════════════════════ */
+async function renderNational(){
+  setLoading(true, 'Loading national membership', `0 / ${ABBR_LIST.length*2} files`);
+  let doneCount=0;
+  const total = ABBR_LIST.length*2;
+  const progress=(d,t,offset)=>{ doneCount = offset + d; $('loadingSub').textContent = `${doneCount} / ${total} files`; };
+
+  const [rowsA, rowsB] = await Promise.all([
+    loadNationalMembership(App.yearFrom, (d,t)=>progress(d,t,0)),
+    loadNationalMembership(App.yearTo, (d,t)=>progress(d,t,ABBR_LIST.length))
+  ]);
+  const totA = sumBy(rowsA, r=>r.st);
+  const totB = sumBy(rowsB, r=>r.st);
+
+  const rows = ABBR_LIST.map(abbr=>{
+    const a = totA.has(abbr) ? totA.get(abbr) : null;
+    const b = totB.has(abbr) ? totB.get(abbr) : null;
+    const info = pctChangeInfo(a,b);
+    return {type:'state', key:abbr, name:ABBR_TO_NAME.get(abbr), a, b, status:info.status, pct:info.pct};
+  });
+  App.currentRows = rows;
+
+  if(!usAtlasGeo) await loadUsAtlas();
+  drawNationalMap(rows);
+  updateSummary(rows);
+  updateMovers(rows);
+  setLoading(false);
+}
+
+function drawNationalMap(rows){
+  clearLayers();
+  const byAbbr = new Map(rows.map(r=>[r.key,r]));
+  geoLayer = L.geoJSON(usAtlasGeo, {
+    style: f=>{
+      const abbr = FIPS_TO_ABBR.get(f.properties._fips);
+      const row = abbr ? byAbbr.get(abbr) : null;
+      const color = row ? statusColor(row.status, row.pct, DOMAIN_BY_LEVEL.national) : '#D7DCE2';
+      return {fillColor: resolveCssVar(color), fillOpacity:0.85, color:'#FFFFFF', weight:1, dashArray: row && row.status==='closed' ? '3,2' : null};
+    },
+    onEachFeature: (f, layer)=>{
+      const abbr = FIPS_TO_ABBR.get(f.properties._fips);
+      if(!abbr) return;
+      const row = byAbbr.get(abbr);
+      layer.bindTooltip(tooltipHtml(row), {className:'atlas-tip', sticky:true});
+      layer.on('click', ()=>{ selectEntity(row); });
+      layer.on('dblclick', ()=>goToState(abbr));
+      layer.on('mouseover', ()=>layer.setStyle({weight:2.5}));
+      layer.on('mouseout', ()=>layer.setStyle({weight:1}));
+    }
+  }).addTo(map);
+  map.fitBounds(geoLayer.getBounds(), {padding:[10,10]});
+}
+
+function tooltipHtml(row){
+  if(!row) return '';
+  const pctTxt = row.status==='new' ? '<span style="color:var(--new-color)">new</span>'
+    : row.status==='closed' ? '<span style="color:var(--closed-color)">closed/merged</span>'
+    : fmtPct(row.pct);
+  return `<b>${escapeHtml(row.name)}</b><br>${yLabel(App.yearFrom)}: ${fmtNum(row.a)}<br>${yLabel(App.yearTo)}: ${fmtNum(row.b)}<br>Change: ${pctTxt}`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STATE LEVEL
+   ════════════════════════════════════════════════════════════════════ */
+async function ensureStateData(abbr){
+  let c = App.stateCache.get(abbr);
+  if(!c){ c={}; App.stateCache.set(abbr, c); }
+  const tasks=[];
+  if(!c.memA || c._memAyear!==App.yearFrom) tasks.push(getMembership(App.yearFrom, abbr).then(d=>{c.memA=d; c._memAyear=App.yearFrom;}));
+  if(!c.memB || c._memByear!==App.yearTo) tasks.push(getMembership(App.yearTo, abbr).then(d=>{c.memB=d; c._memByear=App.yearTo;}));
+  if(!c.dirA || c._dirAyear!==App.yearFrom) tasks.push(getDirectory(App.yearFrom, abbr).then(d=>{c.dirA=d; c._dirAyear=App.yearFrom;}).catch(()=>{c.dirA=[];}));
+  if(!c.distGeo) tasks.push(getDistrictGeo(abbr).then(d=>{c.distGeo=d;}).catch(()=>{c.distGeo={type:'FeatureCollection',features:[]};}));
+  if(!c.schGeo) tasks.push(getSchoolGeo(abbr).then(d=>{c.schGeo=d;}).catch(()=>{c.schGeo={type:'FeatureCollection',features:[]};}));
+  if(tasks.length) await Promise.all(tasks);
+  return c;
+}
+
+async function renderState(abbr){
+  setLoading(true, `Loading ${ABBR_TO_NAME.get(abbr)}`, '');
+  const c = await ensureStateData(abbr);
+
+  const totA = sumBy(c.memA, r=>r.leaid, padLeaid);
+  const totB = sumBy(c.memB, r=>r.leaid, padLeaid);
+  const allLeaids = new Set([...totA.keys(), ...totB.keys()]);
+
+  // names: prefer district boundary properties.NAME, fall back to directory LEA_NAME
+  const nameByLeaid = new Map();
+  for(const f of c.distGeo.features) nameByLeaid.set(f.properties.GEOID, f.properties.NAME);
+  for(const r of c.dirA){ const k=padLeaid(r.LEAID); if(!nameByLeaid.has(k) && r.LEA_NAME) nameByLeaid.set(k, r.LEA_NAME); }
+
+  const geoLeaids = new Set(c.distGeo.features.map(f=>f.properties.GEOID));
+
+  const rows = [...allLeaids].map(leaid=>{
+    const a = totA.has(leaid) ? totA.get(leaid) : null;
+    const b = totB.has(leaid) ? totB.get(leaid) : null;
+    const info = pctChangeInfo(a,b);
+    return {
+      type:'district', key:leaid, name: nameByLeaid.get(leaid) || `LEA ${leaid}`,
+      a, b, status:info.status, pct:info.pct, hasBoundary: geoLeaids.has(leaid)
+    };
+  });
+  App.currentRows = rows;
+
+  drawStateMap(c, rows);
+  updateSummary(rows);
+  updateMovers(rows);
+  setLoading(false);
+}
+
+function avgCoordsForLeaid(schGeo, leaid){
+  const pts = schGeo.features.filter(f=>f.properties.LEAID===leaid).map(f=>f.geometry.coordinates);
+  if(!pts.length) return null;
+  const lon = pts.reduce((s,p)=>s+p[0],0)/pts.length;
+  const lat = pts.reduce((s,p)=>s+p[1],0)/pts.length;
+  return [lat,lon];
+}
+
+function drawStateMap(c, rows){
+  clearLayers();
+  const byLeaid = new Map(rows.map(r=>[r.key,r]));
+  const domain = DOMAIN_BY_LEVEL.state;
+
+  geoLayer = L.geoJSON(c.distGeo, {
+    style: f=>{
+      const row = byLeaid.get(f.properties.GEOID);
+      const color = row ? statusColor(row.status, row.pct, domain) : '#D7DCE2';
+      return {fillColor: resolveCssVar(color), fillOpacity:0.82, color:'#FFFFFF', weight:1, dashArray: row && row.status==='closed' ? '3,2' : null};
+    },
+    onEachFeature: (f, layer)=>{
+      const row = byLeaid.get(f.properties.GEOID);
+      if(!row) return;
+      layer.bindTooltip(tooltipHtml(row), {className:'atlas-tip', sticky:true});
+      layer.on('click', ()=>{ selectEntity(row); });
+      layer.on('dblclick', ()=>goToDistrict(App.stateAbbr, row.key, row.name));
+      layer.on('mouseover', ()=>layer.setStyle({weight:2.5}));
+      layer.on('mouseout', ()=>layer.setStyle({weight:1}));
+    }
+  }).addTo(map);
+
+  // orphan markers for LEAs without a boundary feature
+  markerLayer = L.layerGroup();
+  rows.filter(r=>!r.hasBoundary).forEach(row=>{
+    const pos = avgCoordsForLeaid(c.schGeo, row.key);
+    if(!pos) return;
+    const color = resolveCssVar(statusColor(row.status, row.pct, domain));
+    const m = L.circleMarker(pos, {radius:7, color:'#fff', weight:2, fillColor:color, fillOpacity:0.9, dashArray:'2,2'});
+    m.bindTooltip(tooltipHtml(row)+'<br><span class="orphan-flag">no boundary on file</span>', {className:'atlas-tip', sticky:true});
+    m.on('click', ()=>selectEntity(row));
+    m.on('dblclick', ()=>goToDistrict(App.stateAbbr, row.key, row.name));
+    markerLayer.addLayer(m);
+  });
+  markerLayer.addTo(map);
+
+  const b1 = geoLayer.getBounds();
+  if(b1.isValid()) map.fitBounds(b1, {padding:[10,10]});
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   DISTRICT LEVEL
+   ════════════════════════════════════════════════════════════════════ */
+async function renderDistrict(abbr, leaid, name){
+  setLoading(true, `Loading ${name||leaid}`, '');
+  const c = await ensureStateData(abbr);
+
+  const memA = c.memA.filter(r=>padLeaid(r.leaid)===leaid);
+  const memB = c.memB.filter(r=>padLeaid(r.leaid)===leaid);
+  const totA = sumBy(memA, r=>r.ncessch, padNcessch);
+  const totB = sumBy(memB, r=>r.ncessch, padNcessch);
+  const allSch = new Set([...totA.keys(), ...totB.keys()]);
+
+  const schoolFeatures = c.schGeo.features.filter(f=>f.properties.LEAID===leaid);
+  const featByNcessch = new Map(schoolFeatures.map(f=>[f.properties.NCESSCH, f]));
+
+  const rows = [...allSch].map(ncessch=>{
+    const a = totA.has(ncessch) ? totA.get(ncessch) : null;
+    const b = totB.has(ncessch) ? totB.get(ncessch) : null;
+    const info = pctChangeInfo(a,b);
+    const feat = featByNcessch.get(ncessch);
+    const nameDir = (memB.find(r=>padNcessch(r.ncessch)===ncessch) || memA.find(r=>padNcessch(r.ncessch)===ncessch) || {}).sch_name;
+    return {
+      type:'school', key:ncessch, name: (feat && feat.properties.NAME) || nameDir || `School ${ncessch}`,
+      a, b, status:info.status, pct:info.pct, coords: feat ? [feat.geometry.coordinates[1], feat.geometry.coordinates[0]] : null
+    };
+  });
+  App.currentRows = rows;
+
+  drawDistrictMap(rows);
+  updateSummary(rows);
+  updateMovers(rows);
+  setLoading(false);
+}
+
+let tileLayer = null;
+function drawDistrictMap(rows){
+  clearLayers();
+  if(!tileLayer){
+    tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution:'&copy; OpenStreetMap, &copy; CARTO', maxZoom:19
+    });
+  }
+  tileLayer.addTo(map);
+
+  const domain = DOMAIN_BY_LEVEL.district;
+  markerLayer = L.layerGroup();
+  const bounds = [];
+  rows.forEach(row=>{
+    if(!row.coords) return;
+    bounds.push(row.coords);
+    const color = resolveCssVar(statusColor(row.status, row.pct, domain));
+    const r = Math.max(5, Math.min(16, 5 + Math.sqrt((row.b||row.a||1))/12));
+    const m = L.circleMarker(row.coords, {radius:r, color:'#fff', weight:1.5, fillColor:color, fillOpacity:0.88});
+    m.bindTooltip(tooltipHtml(row), {className:'atlas-tip', sticky:true});
+    m.on('click', ()=>selectEntity(row));
+    markerLayer.addLayer(m);
+  });
+  markerLayer.addTo(map);
+  if(bounds.length) map.fitBounds(bounds, {padding:[40,40]});
+}
+
+function clearLayers(){
+  if(geoLayer){ map.removeLayer(geoLayer); geoLayer=null; }
+  if(markerLayer){ map.removeLayer(markerLayer); markerLayer=null; }
+  if(tileLayer && App.level!=='district'){ map.removeLayer(tileLayer); }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SUMMARY / MOVERS / DETAIL
+   ════════════════════════════════════════════════════════════════════ */
+function updateSummary(rows){
+  const okRows = rows.filter(r=>r.status==='ok'||r.status==='flat');
+  const sumA = okRows.reduce((s,r)=>s+(r.a||0),0) + rows.filter(r=>r.status==='closed').reduce((s,r)=>s+(r.a||0),0);
+  const sumB = okRows.reduce((s,r)=>s+(r.b||0),0) + rows.filter(r=>r.status==='new'||r.status==='new-from-zero').reduce((s,r)=>s+(r.b||0),0);
+  const pct = sumA>0 ? (sumB-sumA)/sumA*100 : null;
+  const nNew = rows.filter(r=>r.status==='new'||r.status==='new-from-zero').length;
+  const nClosed = rows.filter(r=>r.status==='closed').length;
+  const label = App.level==='national' ? 'states' : App.level==='state' ? 'districts' : 'schools';
+
+  $('summaryStats').innerHTML = `
+    <div class="stat"><div class="stat-num">${fmtNum(sumA)}</div><div class="stat-lbl">${yLabel(App.yearFrom)} total</div></div>
+    <div class="stat"><div class="stat-num">${fmtNum(sumB)}</div><div class="stat-lbl">${yLabel(App.yearTo)} total</div></div>
+    <div class="stat"><div class="stat-num ${pct>0?'pos':pct<0?'neg':''}">${fmtPct(pct)}</div><div class="stat-lbl">net change</div></div>
+    <div class="stat"><div class="stat-num">${rows.length}</div><div class="stat-lbl">${label} shown</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--new-color)">${nNew}</div><div class="stat-lbl">new</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--closed-color)">${nClosed}</div><div class="stat-lbl">closed/merged</div></div>
+  `;
+}
+
+function updateMovers(rows){
+  const valid = rows.filter(r=>r.status==='ok' && r.pct!=null);
+  const sorted = App.moverTab==='gain'
+    ? [...valid].sort((a,b)=>b.pct-a.pct).slice(0,8)
+    : [...valid].sort((a,b)=>a.pct-b.pct).slice(0,8);
+  const list = $('moverList');
+  if(!sorted.length){ list.innerHTML = `<li class="empty-note">No comparable entities for this range.</li>`; return; }
+  list.innerHTML = sorted.map(r=>`
+    <li class="mover-item" data-key="${r.key}">
+      <span class="mover-name">${escapeHtml(r.name)}</span>
+      <span class="mover-pct" style="color:${resolveCssVar(bucketColor(r.pct, DOMAIN_BY_LEVEL[App.level]))}">${fmtPct(r.pct)}</span>
+    </li>`).join('');
+  list.querySelectorAll('.mover-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const row = rows.find(r=>r.key===el.dataset.key);
+      selectEntity(row);
+      panToEntity(row);
+    });
+  });
+}
+$('tabGain').addEventListener('click', ()=>setMoverTab('gain'));
+$('tabLoss').addEventListener('click', ()=>setMoverTab('loss'));
+function setMoverTab(tab){
+  App.moverTab = tab;
+  $('tabGain').classList.toggle('active', tab==='gain');
+  $('tabLoss').classList.toggle('active', tab==='loss');
+  updateMovers(App.currentRows);
+}
+
+function panToEntity(row){
+  if(row.coords){ map.setView(row.coords, Math.max(map.getZoom(),12)); }
+}
+
+function clearDetail(){
+  App.selectedEntity=null;
+  $('detailCard').style.display='none';
+  $('trendBox').style.display='none';
+  $('trendBox').innerHTML='';
+}
+$('detailClose').addEventListener('click', clearDetail);
+
+function selectEntity(row){
+  if(!row) return;
+  App.selectedEntity = row;
+  $('detailCard').style.display='';
+  $('detailName').textContent = row.name;
+  $('detailCode').textContent = row.type==='state' ? row.key : row.type==='district' ? `LEAID ${row.key}` : `NCESSCH ${row.key}`;
+  const pctTxt = row.status==='new'||row.status==='new-from-zero' ? 'New since ' + yLabel(App.yearFrom)
+    : row.status==='closed' ? 'Closed/merged after ' + yLabel(App.yearFrom)
+    : fmtPct(row.pct);
+  $('detailRows').innerHTML = `
+    <div class="detail-row"><span>${yLabel(App.yearFrom)}</span><b>${fmtNum(row.a)}</b></div>
+    <div class="detail-row"><span>${yLabel(App.yearTo)}</span><b>${fmtNum(row.b)}</b></div>
+    <div class="detail-row"><span>Change</span><b>${pctTxt}</b></div>
+    ${row.type==='district' && row.hasBoundary===false ? `<div class="detail-row"><span class="orphan-flag">no boundary on file</span><b></b></div>` : ''}
+  `;
+  const drillBtn = $('detailDrillBtn');
+  if(row.type==='state'){ drillBtn.style.display=''; drillBtn.textContent='Drill into state \u2192'; drillBtn.onclick=()=>goToState(row.key); }
+  else if(row.type==='district'){ drillBtn.style.display=''; drillBtn.textContent='Drill into district \u2192'; drillBtn.onclick=()=>goToDistrict(App.stateAbbr, row.key, row.name); }
+  else { drillBtn.style.display='none'; }
+  $('trendBox').style.display='none'; $('trendBox').innerHTML='';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TREND CHART (hand-rolled inline SVG, no extra dependency)
+   ════════════════════════════════════════════════════════════════════ */
+$('detailTrendBtn').addEventListener('click', async ()=>{
+  const row = App.selectedEntity;
+  if(!row) return;
+  const box = $('trendBox');
+  box.style.display=''; box.innerHTML = `<div class="loading-text" style="text-align:center;">Loading trend\u2026</div>`;
+
+  let points;
+  if(row.type==='state'){
+    points = await Promise.all(YEARS.map(async y=>{
+      try{ const rows = await getMembership(y, row.key); return {year:y, value: rows.reduce((s,r)=>s+(r.student_count||0),0)}; }
+      catch(e){ return {year:y, value:null}; }
+    }));
+  } else {
+    const abbr = App.stateAbbr;
+    points = await Promise.all(YEARS.map(async y=>{
+      try{
+        const rows = await getMembership(y, abbr);
+        if(row.type==='district'){
+          const v = rows.filter(r=>padLeaid(r.leaid)===row.key).reduce((s,r)=>s+(r.student_count||0),0);
+          const any = rows.some(r=>padLeaid(r.leaid)===row.key);
+          return {year:y, value: any? v : null};
+        } else {
+          const v = rows.filter(r=>padNcessch(r.ncessch)===row.key).reduce((s,r)=>s+(r.student_count||0),0);
+          const any = rows.some(r=>padNcessch(r.ncessch)===row.key);
+          return {year:y, value: any? v : null};
+        }
+      }catch(e){ return {year:y, value:null}; }
+    }));
+  }
+  drawTrendSVG(box, points);
+});
+
+function drawTrendSVG(container, points){
+  const W=300,H=120,pad={l:38,r:8,t:10,b:18};
+  const vals = points.map(p=>p.value).filter(v=>v!=null);
+  if(!vals.length){ container.innerHTML = `<div class="empty-note">No data available.</div>`; return; }
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const range = (maxV-minV)||1;
+  const x0=points[0].year, x1=points[points.length-1].year;
+  const xPos = y => pad.l + (y-x0)/((x1-x0)||1)*(W-pad.l-pad.r);
+  const yPos = v => H-pad.b - (v-minV)/range*(H-pad.t-pad.b);
+
+  let path='';
+  points.forEach(p=>{
+    if(p.value==null) return;
+    path += (path===''?'M':'L') + xPos(p.year).toFixed(1) + ',' + yPos(p.value).toFixed(1) + ' ';
+  });
+  const dots = points.filter(p=>p.value!=null).map(p=>
+    `<circle cx="${xPos(p.year).toFixed(1)}" cy="${yPos(p.value).toFixed(1)}" r="3" fill="${resolveCssVar('var(--amber-deep)')}"><title>${yLabel(p.year)}: ${fmtNum(p.value)}</title></circle>`
+  ).join('');
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" class="trend-svg">
+      <line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" class="axis-line"/>
+      <text x="${pad.l-4}" y="${yPos(maxV)+3}" text-anchor="end" class="axis-text">${fmtNum(maxV)}</text>
+      <text x="${pad.l-4}" y="${yPos(minV)+3}" text-anchor="end" class="axis-text">${fmtNum(minV)}</text>
+      <path d="${path.trim()}" class="trend-path" fill="none"/>
+      ${dots}
+      <text x="${pad.l}" y="${H-3}" class="axis-text">${yLabel(x0)}</text>
+      <text x="${W-pad.r}" y="${H-3}" text-anchor="end" class="axis-text">${yLabel(x1)}</text>
+    </svg>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SEARCH
+   ════════════════════════════════════════════════════════════════════ */
+const searchInput = $('searchInput'), searchResults = $('searchResults');
+searchInput.addEventListener('input', debounce(onSearchInput, 120));
+searchInput.addEventListener('focus', onSearchInput);
+document.addEventListener('click', e=>{ if(!e.target.closest('.search-wrap')) searchResults.classList.remove('open'); });
+
+function onSearchInput(){
+  const q = searchInput.value.trim().toLowerCase();
+  let results = [];
+  if(App.level==='national'){
+    results = NAME_SORTED_STATES
+      .filter(([,abbr,name])=>!q || name.toLowerCase().includes(q) || abbr.toLowerCase()===q)
+      .slice(0,30)
+      .map(([,abbr,name])=>({label:name, sub:abbr, action:()=>goToState(abbr)}));
+  } else {
+    const rows = App.currentRows || [];
+    results = rows
+      .filter(r=>!q || r.name.toLowerCase().includes(q))
+      .slice(0,30)
+      .map(r=>({
+        label:r.name,
+        sub: r.type==='district' ? 'district' : 'school',
+        action: ()=>{ selectEntity(r); if(r.coords) panToEntity(r); if(r.type==='district') /* single click selects, dblclick on map drills */ null; }
+      }));
+  }
+  if(!results.length){ searchResults.innerHTML = `<div class="search-item"><span>No matches</span></div>`; searchResults.classList.add('open'); return; }
+  searchResults.innerHTML = results.map((r,i)=>`<div class="search-item" data-i="${i}"><span>${escapeHtml(r.label)}</span><small>${escapeHtml(r.sub)}</small></div>`).join('');
+  searchResults.classList.add('open');
+  searchResults.querySelectorAll('.search-item').forEach((el,i)=>{
+    el.addEventListener('click', ()=>{ results[i].action(); searchResults.classList.remove('open'); searchInput.value=''; });
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CSV EXPORT
+   ════════════════════════════════════════════════════════════════════ */
+$('exportBtn').addEventListener('click', ()=>{
+  const rows = App.currentRows || [];
+  const label = App.level==='national' ? 'State' : App.level==='state' ? 'District' : 'School';
+  const header = [label,'Code',yLabel(App.yearFrom),yLabel(App.yearTo),'Change','PctChange','Status'];
+  const lines = [header.join(',')];
+  rows.forEach(r=>{
+    const cells = [
+      csvCell(r.name), csvCell(r.key), r.a??'', r.b??'',
+      (r.a!=null && r.b!=null) ? (r.b-r.a) : '',
+      r.pct!=null ? r.pct.toFixed(2) : '',
+      r.status
+    ];
+    lines.push(cells.join(','));
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `enrollment-atlas_${App.level}_${App.stateAbbr||'us'}_${yc(App.yearFrom)}-${yc(App.yearTo)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+function csvCell(v){
+  const s = String(v??'');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   RESET
+   ════════════════════════════════════════════════════════════════════ */
+$('resetBtn').addEventListener('click', ()=>{
+  App.yearFrom = LATEST_YEAR-1; App.yearTo = LATEST_YEAR;
+  $('yearFrom').value = App.yearFrom; $('yearTo').value = App.yearTo;
+  searchInput.value=''; searchResults.classList.remove('open');
+  App.moverTab='gain'; setMoverTabUIOnly();
+  goToNational();
+});
+function setMoverTabUIOnly(){
+  $('tabGain').classList.add('active'); $('tabLoss').classList.remove('active');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   BOOT
+   ════════════════════════════════════════════════════════════════════ */
+(async function boot(){
+  initYearSelects();
+  initMap();
+  updateChrome();
+  await renderNational();
+})();
+</script>
+</body>
+</html>
